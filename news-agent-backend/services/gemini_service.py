@@ -1,164 +1,167 @@
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from openai import OpenAI
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-
-def gemini_available():
-    return bool(GEMINI_API_KEY)
-
-
-def init_gemini():
-    genai.configure(api_key=GEMINI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 def summarize_article(title: str, snippet: str):
     """
     Returns 2-3 sentence summary for one article.
     """
-    if not GEMINI_API_KEY:
+    if not OPENAI_API_KEY:
         return snippet[:220] if snippet else ""
 
     try:
-        init_gemini()
-        model = genai.GenerativeModel("gemini-1.5-flash")
-
-        prompt = f"""
-You are a news summarizer for a corporate dashboard.
-
-Task:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a news summarizer for a corporate dashboard."
+                },
+                {
+                    "role": "user",
+                    "content": f"""
 Write EXACTLY 2 to 3 short sentences in very simple English.
 
-Article:
 Title: {title}
 Text: {snippet}
 
 Rules:
-- Must be 2 or 3 sentences only
+- 2 or 3 sentences only
 - No bullet points
 - No emojis
 - No opinions
-- No extra headings
 - Mention what happened and why it matters
 """
-
-        res = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.3,
-                "max_output_tokens": 120,
-            },
+                }
+            ],
+            temperature=0.3,
+            max_tokens=150,
         )
 
-        return (res.text or "").strip()
+        return response.choices[0].message.content.strip()
 
-    except Exception:
+    except Exception as e:
+        print("SHORT SUMMARY ERROR:", e)
         return snippet[:220] if snippet else ""
 
 
 def summarize_executive(articles):
     """
-    Returns executive summary for the whole run (6-8 bullet points).
+    Executive summary (6-8 bullet points).
     """
-    if not GEMINI_API_KEY:
-        return "Summary unavailable (Gemini key missing)."
+    if not OPENAI_API_KEY:
+        return "Summary unavailable."
 
     try:
-        init_gemini()
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        titles = "\n".join([f"- {a.get('title','')}" for a in articles[:12]])
 
-        titles = "\n".join([f"- {a.get('title','')}" for a in articles[:14]])
-
-        prompt = f"""
-You are writing an executive news digest for senior leadership.
-
-Input (headlines only):
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are writing an executive news digest for senior leadership."
+                },
+                {
+                    "role": "user",
+                    "content": f"""
+Input headlines:
 {titles}
 
-Task:
-Write 6 to 8 bullet points that summarize the major themes.
+Write 6 to 8 bullet points summarizing the major themes.
 
 Rules:
 - Bullet points only
-- Each bullet should be ONE line
+- One line per bullet
 - Simple business language
-- No speculation, no opinions
-- Do not repeat the same topic twice
-- Cover: world, business, tech, security if present
+- No speculation
 """
-
-        res = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.35,
-                "max_output_tokens": 220,
-            },
+                }
+            ],
+            temperature=0.4,
+            max_tokens=300,
         )
 
-        return (res.text or "").strip()
+        return response.choices[0].message.content.strip()
 
-    except Exception:
-        return "Summary unavailable (Gemini failed)."
-
+    except Exception as e:
+        print("EXECUTIVE SUMMARY ERROR:", e)
+        return "Executive summary failed."
 
 def summarize_article_deep(title: str, snippet: str):
     """
-    Returns a longer paragraph summary (deep summary).
+    Structured deep summary using simple language and clear sections.
+    Optimized for dashboard readability.
     """
-    if not GEMINI_API_KEY:
-        return snippet[:550] if snippet else "Gemini key missing."
 
-    # If snippet is too short, Gemini will output short (and should)
-    # so we ensure it has at least something
+    if not OPENAI_API_KEY:
+        return snippet[:550] if snippet else "API key missing."
+
     if not snippet or len(snippet.strip()) < 40:
-        return "Not enough article text available to generate a deep summary."
+        return "Not enough article text available."
 
     try:
-        init_gemini()
-
-        # IMPORTANT: Use PRO for deep summary
-        model = genai.GenerativeModel("gemini-1.5-pro")
+        # Prevent excessive token usage
+        if len(snippet) > 5000:
+            snippet = snippet[:5000]
 
         prompt = f"""
-You are a Senior Business Intelligence Analyst at a multinational company.
-Write an executive briefing for a corporate dashboard.
-
 Article:
 Title: {title}
 Text: {snippet}
 
-TASK:
-Write EXACTLY ONE cohesive paragraph.
-Target length: 110 to 160 words (strict).
+Create a structured news briefing using these EXACT headings:
 
-STRUCTURE (must be followed in the paragraph):
-1) Lead: Start directly with what happened (core event).
-2) Context: Mention who is involved (company/person/country).
-3) Facts: Include at least TWO specific facts such as numbers, dates, amounts, or counts IF present in the text.
-4) Impact: Explain why it matters (business, markets, security, policy, or society).
-5) Outlook: End with what could happen next ONLY if the text clearly mentions it.
+TL;DR:
+Give 2-3 very short sentences explaining the main news covering everhting main that has happened so busy users can scan everything in one go 
+
+What Happened:
+Explain the event in simple words.
+
+Why It Matters:
+Explain why this is important for people, business, or society.
+
+What’s Next:
+Explain expected future steps if mentioned.
 
 STRICT RULES:
-- One paragraph only (no bullet points, no headings).
-- Simple, newsroom-style English (direct and professional).
-- Neutral tone: no opinions, no exaggeration, no assumptions.
-- Do not write: "this article says" / "the author says".
-- Make it flow naturally like a real briefing, not a list.
-- Must be at least 6 sentences.
+- Use VERY simple English yet keep it formal
+- Each sentence must be SHORT but try keeping it around 2-3 lines
+- Maximum 3 sentences per section
+- Avoid difficult or corporate words but keep it formal
+- Avoid repetition
+- Do NOT invent facts
+- Make it understandable in one quick read
+
+
+
 """
 
-        res = model.generate_content(
-            prompt,
-            generation_config={
-                "temperature": 0.4,
-                "max_output_tokens": 250,
-            },
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You explain news clearly to busy professionals who need fast understanding."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.3,
+            max_tokens=250,
         )
 
-        return (res.text or "").strip()
+        return response.choices[0].message.content.strip()
 
-    except Exception:
-        return snippet[:550] if snippet else ""
+    except Exception as e:
+        print("DEEP SUMMARY ERROR:", e)
+        return "Deep summary generation failed."

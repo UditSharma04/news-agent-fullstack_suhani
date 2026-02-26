@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from dateutil import parser
 import re
-
+import math
 
 def parse_date(date_str: str):
     """
@@ -148,3 +148,20 @@ def classify_category(article: dict) -> str:
         return "World"
 
     return best
+
+
+
+
+def estimate_reading_time(text: str):
+    if not text:
+        return "1 min read"
+
+    words = len(text.split())
+    minutes = words / 200
+
+    if minutes < 1:
+        seconds = int(minutes * 60)
+        seconds = max(seconds, 5)  # minimum 5 sec
+        return f"{seconds}s read"
+
+    return f"{math.ceil(minutes)} min read"
