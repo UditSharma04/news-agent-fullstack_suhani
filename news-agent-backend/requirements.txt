@@ -6,5 +6,6 @@ requests
 feedparser
 beautifulsoup4
 lxml
+lxml_html_clean
 newspaper3k
 nltk

@@ -48,6 +48,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 import { format } from "date-fns";
 
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
+
 // ------------------------------------------------------------
 // Dummy data (later we will replace with FastAPI backend)
 // ------------------------------------------------------------
@@ -368,7 +370,7 @@ async function generateDeepSummary(article) {
   setDeepLoading((prev) => ({ ...prev, [id]: true }));
 
   try {
-   const res = await fetch("http://127.0.0.1:8000/agent/deep-summary-url", {
+   const res = await fetch(`${API_BASE}/agent/deep-summary-url`, {
 
       method: "POST",
       headers: {
@@ -402,7 +404,7 @@ async function runAgentFake() {
   setAgentRunning(true);
 
   try {
-    const res = await fetch("http://127.0.0.1:8000/agent/run", {
+    const res = await fetch(`${API_BASE}/agent/run`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -443,7 +445,7 @@ async function exportStories() {
     selectedTopIds.has(a.id)
   );
 
-  const res = await fetch("http://127.0.0.1:8000/agent/export/email", {
+  const res = await fetch(`${API_BASE}/agent/export/email`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -459,7 +461,7 @@ async function exportStories() {
 }
 // csv 
 async function exportHistory() {
-  const res = await fetch("http://127.0.0.1:8000/agent/export/csv", {
+  const res = await fetch(`${API_BASE}/agent/export/csv`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -481,7 +483,7 @@ async function testSource(sourceName) {
   setTestingSource(sourceName);
 
   try {
-    const res = await fetch("http://127.0.0.1:8000/agent/test-source", {
+    const res = await fetch(`${API_BASE}/agent/test-source`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
